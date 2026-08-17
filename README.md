@@ -53,10 +53,19 @@ Run `relay --help` for the full flag list.
 
 ## Status
 
-Core logic, the Vercel adapter, and the CLI are built, unit-tested, and
-verified end-to-end against a real, live Vercel project. Not yet
-published to a package registry — see [CHANGELOG.md](CHANGELOG.md) for
-what's landed so far.
+Published as [v0.1.0](https://github.com/Aryantyagi-2003/Relay/releases/tag/v0.1.0):
+real, checksum-verified cross-platform binaries, installable via
+`go install` or GitHub Releases. Core logic, the Vercel adapter, and the
+CLI are all unit-tested and verified end-to-end against a real, live
+Vercel project. See [CHANGELOG.md](CHANGELOG.md) for what's landed so
+far.
+
+## Real usage
+
+Shared publicly on 2026-08-17. No install or feedback numbers have come
+in yet — this line will be replaced with the real count (even if it
+stays at or near zero) as soon as there's real data to report, not
+before.
 
 ## Development
 
