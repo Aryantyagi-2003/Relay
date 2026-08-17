@@ -42,6 +42,12 @@ const (
 	IssueValueMismatch IssueKind = "value_mismatch" // local value differs from remote value
 	IssueInvalidShape  IssueKind = "invalid_shape"  // value doesn't match its expected shape
 	IssueMarkdownLeak  IssueKind = "markdown_leak"  // value looks like a pasted markdown link
+
+	// IssueRemoteRedacted marks a variable that exists on the deploy
+	// platform but whose value the platform withheld (e.g. Vercel
+	// "sensitive" env vars aren't returned by the list API), so its
+	// remote value could not be checked.
+	IssueRemoteRedacted IssueKind = "remote_redacted"
 )
 
 // Issue is a single finding produced by the diff engine.
