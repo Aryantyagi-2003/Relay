@@ -13,12 +13,50 @@ failed with a cryptic error that took real time to trace back to a
 malformed string. Relay exists to catch exactly that class of mistake
 before it ever reaches a deploy.
 
+## Installation
+
+Requires Go 1.21+.
+
+```
+go install github.com/Aryantyagi-2003/Relay/cmd/relay@latest
+```
+
+This installs the `relay` binary to `$(go env GOPATH)/bin` — make sure
+that directory is on your `PATH`. Prebuilt binaries for macOS, Linux, and
+Windows are also attached to each [release](https://github.com/Aryantyagi-2003/Relay/releases),
+if you'd rather not build from source.
+
+## Usage
+
+```
+relay --example .env.example --env .env
+```
+
+Checks your local `.env` against `.env.example`: missing variables,
+values that don't match their expected shape (a URL that isn't a URL, a
+port that isn't a number), and — the bug this tool exists for — values
+that look like a pasted markdown link instead of a raw value.
+
+Add `--project <vercel-project>` (with `VERCEL_TOKEN` set, or `--token`)
+to also check what's actually configured on Vercel:
+
+```
+export VERCEL_TOKEN=...
+relay --example .env.example --env .env --project my-app
+```
+
+Exits `0` with no error-level issues, `1` if any were found (so it's
+safe to drop into CI), `2` on a usage/setup problem (bad flags, missing
+files, a failed API call).
+
+Run `relay --help` for the full flag list.
+
 ## Status
 
-Core logic (parsing, shape validation, diffing) is built and tested.
-Vercel integration and CLI packaging are in progress — not yet
-published or installable. This section will be replaced with real
-installation instructions once that's true.
+Core logic, the Vercel adapter, and the CLI are built, unit-tested, and
+verified end-to-end against a real, live Vercel project. Not yet
+published to a package registry — see [CHANGELOG.md](CHANGELOG.md) for
+what's landed so far.
 
 ## Development
 
@@ -29,4 +67,10 @@ go test ./...
 
 ## Known limitations
 
-- Core-only so far; no platform adapter or CLI entrypoint yet.
+- Vercel only for now; other platforms (Railway, etc.) aren't supported.
+- Shape inference from variable names is a heuristic (e.g. `*_URL` →
+  URL) and can be wrong for unconventionally named variables — use a
+  `# hint:<shape>` comment in `.env.example` to override it.
+- Vercel-marked "sensitive" variables can't have their values checked
+  remotely (Vercel withholds them from the API by design); Relay reports
+  them as present-but-unverifiable rather than silently skipping them.

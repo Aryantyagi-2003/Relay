@@ -1,0 +1,39 @@
+version: 2
+
+project_name: relay
+
+builds:
+  - id: relay
+    main: ./cmd/relay
+    binary: relay
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - id: relay
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  disable: true
+
+release:
+  github:
+    owner: Aryantyagi-2003
+    name: Relay

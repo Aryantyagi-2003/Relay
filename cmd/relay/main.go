@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"sort"
 
 	"github.com/Aryantyagi-2003/Relay/internal/core"
@@ -26,6 +27,22 @@ const (
 	exitUsage  = 2
 )
 
+// version is set at build time via -ldflags "-X main.version=vX.Y.Z" by
+// the release workflow. Left empty for `go build`/`go run`, in which case
+// versionString falls back to module version info that `go install
+// pkg@version` embeds automatically.
+var version string
+
+func versionString() string {
+	if version != "" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return "dev"
+}
+
 func run(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("relay", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -33,6 +50,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "Usage: relay [flags]\n\n")
 		fmt.Fprintf(stderr, "Diffs .env.example against your local .env and (optionally) a Vercel project's\nconfigured environment variables.\n\nFlags:\n")
 		fs.PrintDefaults()
+		fmt.Fprintf(stderr, "\nExit codes:\n  0  no issues (or only warnings)\n  1  at least one error-level issue found\n  2  usage error (bad flags, missing files, API failure)\n")
 	}
 
 	examplePath := fs.String("example", ".env.example", "path to the .env.example template")
@@ -41,9 +59,15 @@ func run(args []string, stdout, stderr io.Writer) int {
 	token := fs.String("token", os.Getenv("VERCEL_TOKEN"), "Vercel API token (defaults to $VERCEL_TOKEN)")
 	teamID := fs.String("team", os.Getenv("VERCEL_TEAM_ID"), "Vercel team ID, for team-owned projects (defaults to $VERCEL_TEAM_ID)")
 	target := fs.String("target", "production", "deploy target to check against: production, preview, or development")
+	showVersion := fs.Bool("version", false, "print the relay version and exit")
 
 	if err := fs.Parse(args); err != nil {
 		return exitUsage
+	}
+
+	if *showVersion {
+		fmt.Fprintf(stdout, "relay %s\n", versionString())
+		return exitOK
 	}
 
 	expected, err := loadExpected(*examplePath)

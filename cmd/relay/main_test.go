@@ -1,6 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Aryantyagi-2003/Relay/internal/core"
@@ -66,5 +70,67 @@ func TestBuildReport_RedactedKeyStillGetsLocalChecks(t *testing.T) {
 	}
 	if !hasIssueKind(report.Issues, core.IssueRemoteRedacted, "API_SECRET") {
 		t.Errorf("expected remote_redacted issue; issues: %+v", report.Issues)
+	}
+}
+
+func TestRun_VersionFlagPrintsAndExitsZero(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--version"}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", code, stderr.String())
+	}
+	if !strings.HasPrefix(stdout.String(), "relay ") {
+		t.Errorf("expected version output to start with %q, got %q", "relay ", stdout.String())
+	}
+}
+
+func TestRun_MissingExampleFileExitsUsage(t *testing.T) {
+	dir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--example", filepath.Join(dir, "nope.env.example")}, &stdout, &stderr)
+	if code != exitUsage {
+		t.Fatalf("expected exit %d for missing .env.example, got %d", exitUsage, code)
+	}
+	if !strings.Contains(stderr.String(), "not found") {
+		t.Errorf("expected a clear 'not found' error, got: %s", stderr.String())
+	}
+}
+
+func TestRun_ErrorIssueExitsWithIssuesCode(t *testing.T) {
+	dir := t.TempDir()
+	examplePath := filepath.Join(dir, ".env.example")
+	envPath := filepath.Join(dir, ".env")
+	if err := os.WriteFile(examplePath, []byte("DATABASE_URL=\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(envPath, []byte("DATABASE_URL=\"[docs](https://example.com)\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--example", examplePath, "--env", envPath}, &stdout, &stderr)
+	if code != exitIssues {
+		t.Fatalf("expected exit %d for a markdown-link error, got %d (stdout: %s)", exitIssues, code, stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "markdown_leak") {
+		t.Errorf("expected markdown_leak in output, got: %s", stdout.String())
+	}
+}
+
+func TestRun_CleanConfigExitsOK(t *testing.T) {
+	dir := t.TempDir()
+	examplePath := filepath.Join(dir, ".env.example")
+	envPath := filepath.Join(dir, ".env")
+	if err := os.WriteFile(examplePath, []byte("API_KEY=\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(envPath, []byte("API_KEY=abc123\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--example", examplePath, "--env", envPath}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("expected exit %d for clean config, got %d (stderr: %s)", exitOK, code, stderr.String())
 	}
 }
