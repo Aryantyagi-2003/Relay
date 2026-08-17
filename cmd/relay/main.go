@@ -124,22 +124,40 @@ func loadLocal(path string, stderr io.Writer) (map[string]string, error) {
 
 // buildReport runs the core diff and layers on adapter-specific findings
 // (redacted remote values) that core.Diff has no platform concept of.
+//
+// Variables Vercel reports as present-but-redacted (sensitive) are pulled
+// out of the remote-comparison pass entirely: core.Diff has no way to know
+// they exist on the platform (they're absent from remote precisely
+// because their value was withheld), so running the full expected list
+// through it would flag them as missing_remote — contradicting the
+// separate remote_redacted issue that correctly says they *are* present.
+// Those keys still get a local-only pass (missing/invalid-shape/markdown
+// checks against .env), just no remote presence/value comparison.
 func buildReport(expected []core.ExpectedVar, local, remote map[string]string, redactedKeys []string) core.Report {
-	report := core.Diff(expected, local, remote)
+	redacted := make(map[string]bool, len(redactedKeys))
+	for _, key := range redactedKeys {
+		redacted[key] = true
+	}
 
-	if len(redactedKeys) > 0 {
-		expectedKeys := make(map[string]bool, len(expected))
-		for _, ev := range expected {
-			expectedKeys[ev.Key] = true
+	var normal, redactedExpected []core.ExpectedVar
+	for _, ev := range expected {
+		if redacted[ev.Key] {
+			redactedExpected = append(redactedExpected, ev)
+		} else {
+			normal = append(normal, ev)
 		}
-		for _, key := range redactedKeys {
-			if !expectedKeys[key] {
-				continue
-			}
+	}
+
+	report := core.Diff(normal, local, remote)
+
+	if len(redactedExpected) > 0 {
+		localOnly := core.Diff(redactedExpected, local, nil)
+		report.Issues = append(report.Issues, localOnly.Issues...)
+		for _, ev := range redactedExpected {
 			report.Issues = append(report.Issues, core.Issue{
 				Kind:     core.IssueRemoteRedacted,
 				Severity: core.SeverityWarning,
-				Key:      key,
+				Key:      ev.Key,
 				Detail:   "present on Vercel but marked sensitive; its value could not be retrieved to verify",
 			})
 		}
